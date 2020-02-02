@@ -1,5 +1,7 @@
 *
 
+!*/
 !.gitignore
-!*/ExtendedUASM/*
-!*/TooDon Exporter/*
+!ExtendedUASM/
+!TooDon Exporter/*
+
