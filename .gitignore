@@ -1,0 +1,5 @@
+*
+
+!.gitignore
+!*/ExtendedUASM/*
+!*/TooDon Exporter/*
