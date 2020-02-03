@@ -316,7 +316,7 @@ public class UdonTypeExporter : MonoBehaviour
         return definition.fullName == "Block" || definition.fullName == "Branch" || definition.fullName == "While" ||
                definition.fullName == "For" || definition.fullName == "Get_Variable" ||
                definition.fullName == "Set_Variable" ||
-               definition.fullName == "SubGraph";
+               definition.fullName == "SubGraph" || definition.fullName == "Comment";
     }
 
     private static bool StartsWithIgnoredKeyword(UdonNodeDefinition definition)

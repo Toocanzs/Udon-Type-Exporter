@@ -411,6 +411,9 @@ public class UdonTypeDLLExporter
                     case "UnaryNegation":
                         operatorToken = "!";
                         break;
+                    case "Remainder":
+                        operatorToken = "%";
+                        break;
                     default:
                         Debug.LogError($"Unhandled op {method.MethodName}");
                         break;

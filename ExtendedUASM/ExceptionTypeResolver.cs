@@ -215,6 +215,7 @@ public class ExceptionTypeResolver : BaseTypeResolver
         {"UnityEngineCombineInstance", typeof(UnityEngine.CombineInstance)},
         {"UnityEngineEventSystemsRaycastResult", typeof(UnityEngine.EventSystems.RaycastResult)},
         {"SystemTimeZoneInfoAdjustmentRule", typeof(System.TimeZoneInfo.AdjustmentRule)},
+        {"UnityEngineGizmos", typeof(UnityEngine.Gizmos)},
     };
 
     protected override Dictionary<string, Type> Types => _types;
