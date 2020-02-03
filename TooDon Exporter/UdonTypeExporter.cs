@@ -2,8 +2,6 @@
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Reflection.Emit;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
@@ -12,23 +10,14 @@ using VRC.Udon.Graph;
 using EditedOdinTypeExtensions;
 using System.Text;
 using TooDon;
-using VRC.Udon.Common.Factories;
 using VRC.Udon.Common.Interfaces;
 using VRC.Udon.EditorBindings;
 using VRC.Udon.UAssembly.Assembler;
 using VRC.Udon.UAssembly.Interfaces;
 using VRC.Udon.Wrapper;
-using VRC.Udon.Wrapper.Modules;
-using System;
-using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.Linq.Expressions;
-using System.Text;
-using System.Reflection;
 
 public class UdonTypeExporter : MonoBehaviour
 {
-
     static readonly Regex NonCtorRegex = new Regex(
         @"(?<namespace>[a-zA-Z0-9]+)\.__(?:(?<methodType>get|op|set|add|remove)_)?(?!ctor)(?<methodName>(?:m_|_|Get|Set)?[a-zA-Z0-9]+)?(?:__(?<inputs>[a-zA-Z0-9\*]+(?:_[a-zA-Z0-9]+)*))?__(?<outputs>.*)",
         RegexOptions.Compiled); //https://regexr.com/4r9ik
@@ -65,7 +54,7 @@ public class UdonTypeExporter : MonoBehaviour
 
             EditorUtility.DisplayProgressBar("Progress", "Saving to file...", 2f / 2);
 
-            string codeString = UdonTypeDLLExporter.ExportTDTypeAsDLL(rootType);
+            string codeString = UdonTypeDLLExporter.ExportTDTypeAsDLL(rootType, typeResolver);
             
             CompilerParameters parameters = new CompilerParameters();
             parameters.GenerateExecutable = false;
@@ -73,13 +62,18 @@ public class UdonTypeExporter : MonoBehaviour
             parameters.OutputAssembly = "Output.dll";
             CompilerResults r = CodeDomProvider.CreateProvider("CSharp")
                 .CompileAssemblyFromSource(parameters, codeString);
+
+            bool error = false;
             foreach (var s in r.Output)
             {
                 if (s.Contains("warning"))
                     continue;
+                error = true;
                 Debug.Log(s);
             }
-            
+            if(error)
+                File.WriteAllLines("source.txt", new []{codeString});
+
             File.Copy("Output.dll", path, true);
         }
         finally
@@ -138,8 +132,9 @@ public class UdonTypeExporter : MonoBehaviour
                 var fullUdonExternString = definition.fullName;
                 var definitionType = typeResolverGroup.GetTypeFromTypeStringWithErrors(definitionName);
                 var namespaceName = GetTypeFullName(definitionType);
-                var definitionTDType = GetOrCreateTDType(rootType, namespaceName);
+                var definitionTDType = GetOrCreateTDType(rootType, namespaceName, typeResolverGroup);
                 definitionTDType.UdonName = GenerateUdonName(definitionType);
+                definitionTDType.CSharpType = definitionType;
 
                 //Create TDTypes for all C# types encountered in the definition, and attach methods to them for each of the Extern functions
                 var method = new Method
@@ -156,8 +151,9 @@ public class UdonTypeExporter : MonoBehaviour
                     {
                         var thisType = typeResolverGroup.GetTypeFromTypeStringWithErrors(udonTypeName);
                         var typeName = GetTypeFullName(thisType);
-                        TDType tdType = GetOrCreateTDType(rootType, typeName);
+                        TDType tdType = GetOrCreateTDType(rootType, typeName, typeResolverGroup);
                         tdType.UdonName = GenerateUdonName(thisType);
+                        tdType.CSharpType = thisType;
                         if (typeResolverGroup.GetTypeFromTypeStringWithErrors(tdType.UdonName) != thisType)
                         {
                             Debug.LogError(
@@ -171,8 +167,9 @@ public class UdonTypeExporter : MonoBehaviour
                 if (methodOutput != "")
                 {
                     var thisType = typeResolverGroup.GetTypeFromTypeStringWithErrors(methodOutput);
-                    TDType tdType = GetOrCreateTDType(rootType, GetTypeFullName(thisType));
+                    TDType tdType = GetOrCreateTDType(rootType, GetTypeFullName(thisType), typeResolverGroup);
                     tdType.UdonName = GenerateUdonName(thisType);
+                    tdType.CSharpType = thisType;
                     method.Output = tdType;
                 }
 
@@ -188,7 +185,7 @@ public class UdonTypeExporter : MonoBehaviour
         }
     }
 
-    public static TDType GetOrCreateTDType(TDType rootType, string fullName)
+    public static TDType GetOrCreateTDType(TDType rootType, string fullName, TypeResolverGroup typeResolverGroup)
     {
         bool containsGenericArguments = fullName.Contains("<");
         Queue<string> namespaces;
@@ -231,6 +228,12 @@ public class UdonTypeExporter : MonoBehaviour
                     TypeName = name,
                     InputGenericArguments = genericArguments
                 };
+                string attemptedUdonName = GenerateUdonName(type.FullName, true);//Try to generate udon name and set it if it's correct.
+                if (typeResolverGroup.GetTypeFromTypeString(attemptedUdonName) != null)
+                {
+                    type.UdonName = attemptedUdonName;
+                }
+                    
                 current.Children.Add(type);
                 current = type;
                 current.IsGeneric = isGeneric;
@@ -242,7 +245,7 @@ public class UdonTypeExporter : MonoBehaviour
             current.IsGeneric = true;
             if (!genericArguments.Contains("<"))
             {
-                current.AddGenericArguments(rootType, genericArguments.Replace(" ", "").Split(','));
+                current.AddGenericArguments(rootType, typeResolverGroup, genericArguments.Replace(" ", "").Split(','));
             }
             else
             {
@@ -251,14 +254,14 @@ public class UdonTypeExporter : MonoBehaviour
                 //which means it's a single layer of nesting
                 //So for now we can just pass "other<something, else>" to GetOrCreateTDType
                 //In the future this might change?
-                current.AddGenericArguments(rootType, genericArguments);
+                current.AddGenericArguments(rootType, typeResolverGroup, genericArguments);
             }
         }
 
         if (fullName.Contains("[]"))
         {
             //Add base type for arrays
-            GetOrCreateTDType(rootType, fullName.Replace("[]", ""));
+            GetOrCreateTDType(rootType, fullName.Replace("[]", ""), typeResolverGroup);
         }
 
         return current;
@@ -279,7 +282,7 @@ public class UdonTypeExporter : MonoBehaviour
         return s;
     }
 
-    private static string GetTypeFullName(Type type)
+    public static string GetTypeFullName(Type type)
     {
         StringBuilder s = new StringBuilder();
         if (type.IsGenericType)
@@ -295,12 +298,17 @@ public class UdonTypeExporter : MonoBehaviour
         return s.ToString();
     }
 
-    private static string GenerateUdonName(Type type)
+    public static string GenerateUdonName(Type type)
     {
         if (type == typeof(List<object>))
             return "ListT";
         bool replaceStar = (type != typeof(System.Char*) && type != typeof(System.SByte*));
-        return RemoveTypeSpecialCharacters(GetTypeFullName(type), true, replaceStar).ToString();
+        return GenerateUdonName(GetTypeFullName(type), replaceStar);
+    }
+    
+    public static string GenerateUdonName(string fullName, bool replaceStar)
+    {
+        return RemoveTypeSpecialCharacters(fullName, true, replaceStar).ToString();
     }
 
     private static bool IsSpecialDefinition(UdonNodeDefinition definition)
@@ -361,6 +369,8 @@ namespace TooDon
         /// </summary>
         public string UdonName;
 
+        public Type CSharpType;
+
         private bool GeneratedGenericArguments = false;
 
         public List<Method> StaticMethods = new List<Method>();
@@ -378,13 +388,13 @@ namespace TooDon
         // Have to use the string because we might not have the list of generic arguments setup yet.
         public string InputGenericArguments;
 
-        public void AddGenericArguments(TDType rootType, params string[] strings)
+        public void AddGenericArguments(TDType rootType, TypeResolverGroup typeResolverGroup, params string[] strings)
         {
             if (!GeneratedGenericArguments)
             {
                 foreach (var genericArgument in strings)
                 {
-                    GenericArguments.Add(UdonTypeExporter.GetOrCreateTDType(rootType, genericArgument));
+                    GenericArguments.Add(UdonTypeExporter.GetOrCreateTDType(rootType, genericArgument, typeResolverGroup));
                     GeneratedGenericArguments = true;
                 }
             }

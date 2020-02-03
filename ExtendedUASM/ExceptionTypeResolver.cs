@@ -208,7 +208,13 @@ public class ExceptionTypeResolver : BaseTypeResolver
         {"UnityEngineAINavMeshHit", typeof(UnityEngine.AI.NavMeshHit)},
         {"UnityEngineUIILayoutElement", typeof(UnityEngine.UI.ILayoutElement)},
         {"SystemCollectionsGenericIEnumerableUnityEngineObject", typeof(IEnumerable<UnityEngine.Object>)},
-        {"VRCInstantiate", typeof(VRCInstantiate)}
+        {"VRCInstantiate", typeof(VRCInstantiate)},
+        {"VRCSDKBaseVRC_StationInputInputPairing", typeof(VRC.SDKBase.VRC_StationInput.InputPairing)},
+        {"UnityEngineRenderingReflectionProbeBlendInfo", typeof(UnityEngine.Rendering.ReflectionProbeBlendInfo)},
+        {"UnityEngineBoneWeight", typeof(UnityEngine.BoneWeight)},
+        {"UnityEngineCombineInstance", typeof(UnityEngine.CombineInstance)},
+        {"UnityEngineEventSystemsRaycastResult", typeof(UnityEngine.EventSystems.RaycastResult)},
+        {"SystemTimeZoneInfoAdjustmentRule", typeof(System.TimeZoneInfo.AdjustmentRule)},
     };
 
     protected override Dictionary<string, Type> Types => _types;
