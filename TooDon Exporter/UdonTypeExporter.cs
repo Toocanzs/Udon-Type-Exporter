@@ -2,6 +2,7 @@
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
@@ -55,22 +56,22 @@ public class UdonTypeExporter : MonoBehaviour
             EditorUtility.DisplayProgressBar("Progress", "Saving to file...", 2f / 2);
 
             string codeString = UdonTypeDLLExporter.ExportTDTypeAsDLL(rootType, typeResolver);
-            
+
             CompilerParameters parameters = new CompilerParameters();
             parameters.GenerateExecutable = false;
             parameters.CompilerOptions = "-nostdlib -noconfig";
             parameters.OutputAssembly = "Output.dll";
             CompilerResults r = CodeDomProvider.CreateProvider("CSharp")
                 .CompileAssemblyFromSource(parameters, codeString);
-            
+
             foreach (var s in r.Output)
             {
                 if (s.Contains("warning"))
                     continue;
                 Debug.Log(s);
             }
-           
-            File.WriteAllLines("source.txt", new []{codeString});
+
+            File.WriteAllLines("source.txt", new[] {codeString});
 
             File.Copy("Output.dll", path, true);
         }
@@ -112,18 +113,19 @@ public class UdonTypeExporter : MonoBehaviour
                 {
                     methodInputs[i] = methodInputs[i].Replace("-", "_");
                 }
+
                 var isStatic = (definition.inputNames.Length > 0 && definition.inputNames[0] != "instance");
                 //Some of the methods don't have any inputs(so definition.inputNames[0] doesn't exist) so we have to check the wrapper
                 try
                 {
                     int outputCount = definition.outputs[0] != typeof(void) ? 1 : 0;
-                    int inputParameterCount = Wrapper.GetExternFunctionParameterCount(definition.fullName) - outputCount;
+                    int inputParameterCount =
+                        Wrapper.GetExternFunctionParameterCount(definition.fullName) - outputCount;
                     if (definition.inputNames.Length == 0 && inputParameterCount == 0)
                         isStatic = true;
                 }
                 catch //Catch because the wrapper just throws for some unsupported externs that exist in node definitions
                 {
-                    
                 }
 
                 var fullUdonExternString = definition.fullName;
@@ -225,12 +227,13 @@ public class UdonTypeExporter : MonoBehaviour
                     TypeName = name,
                     InputGenericArguments = genericArguments
                 };
-                string attemptedUdonName = GenerateUdonName(type.FullName, true);//Try to generate udon name and set it if it's correct.
+                string attemptedUdonName =
+                    GenerateUdonName(type.FullName, true); //Try to generate udon name and set it if it's correct.
                 if (typeResolverGroup.GetTypeFromTypeString(attemptedUdonName) != null)
                 {
                     type.UdonName = attemptedUdonName;
                 }
-                    
+
                 current.Children.Add(type);
                 current = type;
                 current.IsGeneric = isGeneric;
@@ -302,7 +305,7 @@ public class UdonTypeExporter : MonoBehaviour
         bool replaceStar = (type != typeof(System.Char*) && type != typeof(System.SByte*));
         return GenerateUdonName(GetTypeFullName(type), replaceStar);
     }
-    
+
     public static string GenerateUdonName(string fullName, bool replaceStar)
     {
         return RemoveTypeSpecialCharacters(fullName, true, replaceStar).ToString();
@@ -391,7 +394,8 @@ namespace TooDon
             {
                 foreach (var genericArgument in strings)
                 {
-                    GenericArguments.Add(UdonTypeExporter.GetOrCreateTDType(rootType, genericArgument, typeResolverGroup));
+                    GenericArguments.Add(
+                        UdonTypeExporter.GetOrCreateTDType(rootType, genericArgument, typeResolverGroup));
                     GeneratedGenericArguments = true;
                 }
             }

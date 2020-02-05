@@ -99,7 +99,6 @@ public class UdonTypeDLLExporter
                 s.Append($"public ");
                 if (IsExtentionClass)
                     s.Append("static ");
-
                 if (TypeName == "String")
                     s.Append("sealed ");
                 if (TypeName == "Array")
@@ -265,16 +264,6 @@ public class UdonTypeDLLExporter
 
             if (type.UdonName != null)
             {
-                bool anyContainStar = false;
-                foreach (var method in type.StaticMethods.Union(type.NonStaticMethods))
-                {
-                    if (method.FullUdonExternString.Contains("*"))
-                        anyContainStar = true;
-                }
-
-                if (anyContainStar
-                ) //Not going to handle the char* and sbyte*. Can't even create them in Udon anyway. Will likely be removed
-                    return;
                 AddMethods(type.StaticMethods, Class, extensionClass, type.FullName);
                 AddMethods(type.NonStaticMethods, Class, extensionClass, type.FullName);
             }
@@ -330,6 +319,8 @@ public class UdonTypeDLLExporter
     {
         foreach (var method in methods)
         {
+            if (method.FullUdonExternString.Contains("*"))
+                return;//Not going to handle the Char* or SByte* found in udon. Can't create it and it will probably be removed
             if (method.MethodName != "ctor")
             {
                 AddUdonMethod(Class, method, extensionClass, rawFullName);
