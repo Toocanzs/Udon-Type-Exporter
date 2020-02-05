@@ -62,13 +62,11 @@ public class UdonTypeExporter : MonoBehaviour
             parameters.OutputAssembly = "Output.dll";
             CompilerResults r = CodeDomProvider.CreateProvider("CSharp")
                 .CompileAssemblyFromSource(parameters, codeString);
-
-            bool error = false;
+            
             foreach (var s in r.Output)
             {
                 if (s.Contains("warning"))
                     continue;
-                error = true;
                 Debug.Log(s);
             }
            
