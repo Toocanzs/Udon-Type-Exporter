@@ -53,6 +53,46 @@ public class UdonTypeDLLExporter
             {
                 s.Append("namespace ");
             }
+            else if (TypeName.StartsWith("Func") || TypeName.StartsWith("Action"))
+            {
+                string name = "";
+                string delegateReturn = "";
+                bool isFunc = false;
+                if (TypeName.StartsWith("Func"))
+                {
+                    name = "Func";
+                    delegateReturn = $"T{Type.GenericArguments.Count - 1}";
+                    isFunc = true;
+                }
+                else if (TypeName.StartsWith("Action"))
+                {
+                    name = "Action";
+                    delegateReturn = $"void";
+                }
+                s.Append($"public delegate {delegateReturn} {name}<");
+
+                for (int i = 0; i < Type.GenericArguments.Count; i++)
+                {
+                    if (isFunc && i == Type.GenericArguments.Count - 1)
+                        s.Append("out ");
+                    else
+                        s.Append("in ");
+                    s.Append($"T{i}");
+                    if (i != Type.GenericArguments.Count - 1)
+                        s.Append(", ");
+                }
+
+                s.Append(">(");
+                int subtracted = isFunc ? 1 : 0;
+                for (int i = 0; i < Type.GenericArguments.Count-subtracted; i++)
+                {
+                    s.Append($"T{i} t{i}");
+                    if (i != Type.GenericArguments.Count - 1 - subtracted)
+                        s.Append(", ");
+                }
+                s.Append(");");
+                return s.ToString();
+            }
             else
             {
                 s.AppendLine($"\t[UdonType(\"{UdonName}\")]");
@@ -119,14 +159,13 @@ public class UdonTypeDLLExporter
                 s.Append("\tpublic ");
                 if (method.IsStatic)
                     s.Append("static ");
-                s.Append($"extern {method.Output} {field.FieldName} {{");
+                s.Append($"{method.Output} {field.FieldName} {{");
                 if (field.GetMethod != null)
-                    s.Append("get; ");
+                    s.Append($"get {{ throw new System.Exception();}}");
                 if (field.SetMethod != null)
-                    s.Append("set; ");
+                    s.Append($"set {{ throw new System.Exception(); }}");
                 s.AppendLine("}");
             }
-
             s.AppendLine(Methods.ToString());
             foreach (var childClass in Children)
             {
@@ -262,8 +301,8 @@ public class UdonTypeDLLExporter
         system.AppendLine("public class Attribute { }");
         system.AppendLine("public abstract class Delegate { }");
         system.AppendLine("public abstract class MulticastDelegate : Delegate { }");
-        system.AppendLine("internal struct IntPtr { }");
-        system.AppendLine("internal struct UIntPtr { }");
+        system.AppendLine("public struct IntPtr { }");
+        system.AppendLine("public struct UIntPtr { }");
         system.AppendLine("public struct RuntimeTypeHandle { }");
         system.AppendLine("public struct RuntimeMethodHandle { }");
         system.AppendLine("public struct RuntimeFieldHandle { }");
@@ -314,7 +353,7 @@ public class UdonTypeDLLExporter
             }
         }
     }
-
+    
     private static void AddUdonMethod(Class Class, Method method, bool extensionClass, string rawFullName,
         string prefix = "")
     {
@@ -325,7 +364,7 @@ public class UdonTypeDLLExporter
         {
             bool atLeastOneInputIsContainedType =
                 false; //For some reason there are operators defined in classes which are from their inherited class
-            bool atLeastOneInOutIsContainedType = false;//Check output too
+            bool atLeastOneInOutIsContainedType = false; //Check output too
             foreach (var methodInput in method.Inputs)
             {
                 if (methodInput == Class.Type)
@@ -504,8 +543,41 @@ public class UdonTypeDLLExporter
                 Class.Methods.Append(", ");
         }
     }
+    
+    static string attributeClassString = @"
 
-    static string attributeClassString = @"public class UdonType : System.Attribute
+public enum AttributeTargets
+{
+    Assembly = 1,
+    Module = 2,
+    Class = 4,
+    Struct = 8,
+    Enum = 16, // 0x00000010
+    Constructor = 32, // 0x00000020
+    Method = 64, // 0x00000040
+    Property = 128, // 0x00000080
+    Field = 256, // 0x00000100
+    Event = 512, // 0x00000200
+    Interface = 1024, // 0x00000400
+    Parameter = 2048, // 0x00000800
+    Delegate = 4096, // 0x00001000
+    ReturnValue = 8192, // 0x00002000
+    GenericParameter = 16384, // 0x00004000
+    All = GenericParameter | ReturnValue | Delegate | Parameter | Interface | Event | Field | Property | Method | Constructor | Enum | Struct | Class | Module | Assembly, // 0x00007FFF
+}
+[AttributeUsage(AttributeTargets.All)]
+public sealed class AttributeUsageAttribute : System.Attribute 
+{ 
+    internal AttributeTargets m_attributeTarget = AttributeTargets.All;
+    public AttributeUsageAttribute(AttributeTargets validOn)
+    {
+
+    }
+    public bool Inherited;
+}
+
+[AttributeUsage(AttributeTargets.All)]
+public class UdonType : System.Attribute
 {
     public string UdonName;
     public UdonType(string udonName)
@@ -514,6 +586,7 @@ public class UdonTypeDLLExporter
     }
 }
 
+[AttributeUsage(AttributeTargets.All)]
 public class UdonMethod : System.Attribute
 {
     public string ExternString;
@@ -545,12 +618,17 @@ public class UdonConstructor : UdonMethod
 
 namespace System.Runtime.InteropServices
 {
-	public sealed class OutAttribute : Attribute {}
+	public sealed class OutAttribute : Attribute { }
 }
 namespace System.Runtime.CompilerServices
 {
-	public sealed class ExtensionAttribute : Attribute {}
-}";
+	public sealed class ExtensionAttribute : Attribute { }
+}
+namespace System.Reflection
+{
+    public sealed class DefaultMemberAttribute : Attribute { }
+}
+";
 }
 
 public static class TypeExtensions

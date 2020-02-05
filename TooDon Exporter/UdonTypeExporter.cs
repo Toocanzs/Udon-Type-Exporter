@@ -71,8 +71,8 @@ public class UdonTypeExporter : MonoBehaviour
                 error = true;
                 Debug.Log(s);
             }
-            if(error)
-                File.WriteAllLines("source.txt", new []{codeString});
+           
+            File.WriteAllLines("source.txt", new []{codeString});
 
             File.Copy("Output.dll", path, true);
         }
@@ -114,7 +114,6 @@ public class UdonTypeExporter : MonoBehaviour
                 {
                     methodInputs[i] = methodInputs[i].Replace("-", "_");
                 }
-
                 var isStatic = (definition.inputNames.Length > 0 && definition.inputNames[0] != "instance");
                 //Some of the methods don't have any inputs(so definition.inputNames[0] doesn't exist) so we have to check the wrapper
                 try
@@ -124,7 +123,7 @@ public class UdonTypeExporter : MonoBehaviour
                     if (definition.inputNames.Length == 0 && inputParameterCount == 0)
                         isStatic = true;
                 }
-                catch (Exception e)//Catch because the wrapper just throws for some unsupported externs that exist in node definitions
+                catch //Catch because the wrapper just throws for some unsupported externs that exist in node definitions
                 {
                     
                 }
